@@ -1,9 +1,9 @@
 This Script will create a example /etc/hosts file from repository
+
 https://raw.githubusercontent.com/matomo-org/referrer-spam-list/master/spammers.txt
 
-and file CUSTOM_SPAMMERS
-
-to redirect to 127.0.0.1 for default
+then adding content of file CUSTOM_SPAMMERS
+making each URL redirect 127.0.0.1 by default
 
 run 
 ./block-spammers -h
