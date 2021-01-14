@@ -1,0 +1,167 @@
+#!/bin/bash
+
+REPO_URL="https://raw.githubusercontent.com/matomo-org/referrer-spam-list/master/spammers.txt"
+FILEOUT="spammers.txt"
+CUSTOM_SPAMMERS="CUSTOM_SPAMMERS"
+ORIGINAL_HOST_FILE="/etc/hosts"
+TARGET_IP="127.0.0.1"
+VERSION=0.1.0
+ARGS=("$@") 
+
+
+usage() {
+    cat <<EOF
+
+This script will create a $ORIGINAL_HOST_FILE file using 
+$REPO_URL
+
+Usage: $0 [-h] [-v] [-i <target_ip>] [-n <download target_filename>] [-t] [-u]
+
+-h
+    Print usage.
+
+-v 
+    Version
+
+-i <target_ip>
+    IP to send spammers.
+    Default: $TARGET_IP
+
+-f <filename>
+    Change filename for spammers file
+    Default: $FILEOUT
+
+-t
+    TestBuild /etc/hosts
+    without modify anything
+-u
+    Update $FILEOUT list from repo:
+    $REPO_URL
+
+Examples usage:
+$0 -u -t > mynew-hosts
+
+$0 -f test.txt -u -i 192.168.0.100 -t > mynew-hosts
+
+-f test.txt : Download to file test.txt
+-u          : Update from $REPO_URL
+-i 192.168.0.100: for each spammer in test.txt create aredirect to 192.168.0.100
+-t : show resulting file
+> mynew-hosts : create a file named mynew-hosts
+
+#After having mynew-host time to backup the original $ORIGINAL_HOST_FILE:
+sudo cp $ORIGINAL_HOST_FILE $ORIGINAL_HOST_FILE.orig
+
+#Now copy mynew-hosts to $ORIGINAL_HOST_FILE
+sudo cp mynew-hosts $ORIGINAL_HOST_FILE
+
+#To Uninstall:
+sudo cp $ORIGINAL_HOST_FILE.orig $ORIGINAL_HOST_FILE
+
+#NOTE: add custom spammers to $CUSTOM_SPAMMERS 
+#one domain per line
+echo "new-spamer.url" >> $CUSTOM_SPAMMERS
+
+EOF
+}
+
+program_exists() {
+    type "$1" > /dev/null 2>&1
+    return $?
+}
+
+is_super_user() {
+    if [ $(id -u) -ne 0 ]; then
+        if program_exists "sudo"; then
+            SUDO="sudo"
+            print_info "\nInstalling required system packages.."
+        else
+            print_error "\nsudo program is required to install system packages. Please install sudo as root and rerun this script as normal user."
+            exit 1
+        fi
+    fi
+}
+
+print_original_etc_hosts() {
+	while IFS= read -r line
+	do
+  		echo "$line"
+	done < "$ORIGINAL_HOST_FILE"
+}
+
+print_spammers_list() {
+
+    if [ ! -f "$FILEOUT" ]; then
+        echo "$FILEOUT does not exist. first create file by updating first, aborting"
+        exit 1
+    fi
+
+    cat <<EOF
+
+#
+# $0 $ARGS
+# file: $FILEOUT
+# $(date)
+#
+
+EOF
+
+	while IFS= read -r line
+	do
+  		echo "$TARGET_IP       $line"
+	done < "$FILEOUT"
+
+}
+
+print_custom_spammer_list() {
+    cat <<EOF
+
+#
+# file: $CUSTOM_SPAMMERS
+#
+
+EOF
+
+	while IFS= read -r line
+	do
+  		echo "$TARGET_IP       $line"
+	done < "$CUSTOM_SPAMMERS"
+
+}
+
+while getopts ":i:f:vtu" opt
+do
+    case "$opt" in
+
+        i)
+            #Change target IP
+            TARGET_IP=${OPTARG}
+            ;;
+        f)
+            #change filename for spammers.txt file
+            FILEOUT=${OPTARG}
+            ;;
+        t)
+            # print /etc/hosts
+	    print_original_etc_hosts
+	    print_spammers_list
+            print_custom_spammer_list
+            ;;
+        u)
+	    #Update spammers.txt
+	    wget -q --output-document=$FILEOUT "$REPO_URL"
+            ;;
+        v)
+            echo "$0 Ver. $VERSION"
+            exit 0
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        ?)
+            usage >& 2
+            exit 1
+            ;;
+    esac
+done
